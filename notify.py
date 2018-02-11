@@ -1,15 +1,17 @@
-import requests
-import yaml
+import re
+import urllib.parse
+import urllib.request
+from configparser import ConfigParser
 
 
 def load():
     """
-    settings.ymlからIP通知のリストを取得する
-    :return: [{domain: username: password:}]
+    .config からIP通知のリストを取得する
+    :return: ConfigParser object
     """
-    with open("./settings.yml", "r") as f:
-        notify_list = yaml.load(f) | []
-    return notify_list
+    config = ConfigParser()
+    config.read('.config')
+    return config
 
 
 def request(info):
@@ -19,10 +21,27 @@ def request(info):
     :return: 成功の可否
     """
     base_url = 'https://domains.google.com/nic/update'
-    payload = {'hostname': info['domain']}
-    auth = (info['username'], info['password'])
-    response = requests.post(base_url, payload, auth=auth)
-    return response.status_code == requests.codes.ok
+
+    manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+    manager.add_password(None, base_url, info['username'], info['password'])
+    handler = urllib.request.HTTPBasicAuthHandler(manager)
+    opener = urllib.request.build_opener(handler)
+    urllib.request.install_opener(opener)
+
+    params = urllib.parse.urlencode({"hostname": info["domain"]}).encode('UTF-8')
+    response = urllib.request.urlopen(base_url, params)
+    if response.status is not 200:
+        print("Invalid Status Code", response.status)
+        return False
+
+    body = response.read().decode("utf-8")
+    matched = re.match(r"^(good|nochg)\s.+$", body)
+
+    if matched is None:
+        print("Something went wrong!\n\tREASON: ", body)
+        return False
+    print("Notification succeeded! ", body)
+    return True
 
 
 def main():
@@ -30,12 +49,13 @@ def main():
     メイン関数
     :return:
     """
-    notify_list = load()
-    for i in notify_list:
-        if not i["username"] or not i["password"]:
+    config = load()
+    for sec in config.sections():
+        username = config.get(sec, "username")
+        password = config.get(sec, "password")
+        if not username or not password:
             raise Exception("username or password is undefined")
-        success = request(i)
-        print(success)
+        request({"domain": sec, "username": username, "password": password})
 
 
 if __name__ == '__main__':

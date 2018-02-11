@@ -1,7 +1,0 @@
----
-# - domain: "IP通知したいドメイン"
-#   username: "APIのユーザー名"
-#   password: "APIのパスワード"
-- domain: "your.domain"
-  username: "please set api username"
-  password: "please set api password"
