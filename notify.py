@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import re
 import urllib.parse
 import urllib.request
@@ -10,7 +12,11 @@ def load():
     :return: ConfigParser object
     """
     config = ConfigParser()
-    config.read('.config')
+    try:
+        with open('/etc/ipnotify/config') as f:
+            config.read_file(f)
+    except IOError:
+        raise Exception("failed to open config file")
     return config
 
 
